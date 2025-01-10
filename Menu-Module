@@ -1,0 +1,477 @@
+#!/usr/bin/env lua
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
+
+local Player = game.Players.LocalPlayer
+local PlayerGui = Player.PlayerGui
+local MenuUI = PlayerGui.ScreenGui.Menu
+
+local InterfaceInfo = require(script.InterfaceInfo)
+
+local OpenMenuCD = 0.25
+local MenuOpenSpeed = 0.35
+local MenuCloseSpeed = 0.25
+
+local optionRegularSize = UDim2.new(0.12, 0, 0.09, 0)
+local optionEnhancedSize = UDim2.new(0.15, 0, 0.13, 0)
+
+local Closing
+
+local Descriptions = {
+	Store = "Buy items to further enhance your gameplayer experience with ROBUX!",
+	--Switches = "Manage your line up! You can also view, and upgrade stats!",
+	Inventory = "View every item you've collected from within stages, or from around the HUB!",
+	--Tasks = "Complete, and monitor your progress for compleition of missions!",
+	Gallery = "Collect every switch possible, and view them within this index!",
+	Codes = "Redeem any codes here to get cool rewards!",
+	Settings = "Tweak the game to your liking with settings!",
+}
+
+local Menu = {}
+
+function Menu:UIPos(UI, status, easing, easingdir, duration, halt, quick)
+	if quick then
+		UI.Position = InterfaceInfo[UI.Name][status].Placement
+	else
+		local Tween = TweenService:Create(UI, TweenInfo.new(duration, easing, easingdir), {Position = InterfaceInfo[UI.Name][status].Placement})
+		if halt == true then Tween:Play() Tween.Completed:Wait() else task.spawn(function() Tween:Play() end) end
+	end
+end
+
+function Menu:UITrans(UI, amount, easing, easingdir, duration, halt, quick)
+	if UI:IsA("ImageLabel") then
+		if quick then
+			UI.ImageTransparency = amount
+		else
+			local Tween = TweenService:Create(UI, TweenInfo.new(duration, easing, easingdir), {ImageTransparency = amount})
+			if halt == true then Tween:Play() Tween.Completed:Wait() else task.spawn(function() Tween:Play() end) end
+		end
+	else
+		if quick then
+			UI.BackgroundTransparency = amount
+		else
+			local Tween = TweenService:Create(UI, TweenInfo.new(duration, easing, easingdir), {BackgroundTransparency = amount})
+			if halt == true then Tween:Play() Tween.Completed:Wait() else task.spawn(function() Tween:Play() end) end
+		end		
+	end
+end
+
+function Menu:FX(effect, area, status)
+	if effect == "Glitchify" then
+		local originalGlitchPositions = {}
+		local originalArrowPosition = area.Arrow.Position
+			
+		for i, v in pairs (area.Glitch:GetDescendants()) do
+			if v:IsA("ImageLabel") and v.Name ~= "Base" then
+				originalGlitchPositions[v.Name] = {Pos = v.Position, Size = v.Size}
+			end		
+		end
+		
+		local function StartGlitch()
+			MenuUI.Hover:Play()
+			
+			for i, v in pairs (area.Glitch:GetDescendants()) do
+				if v:IsA("ImageLabel") and v.Name ~= "Base" then
+					local r = Random.new()
+					local chosenInterval = r:NextNumber(0.075, 0.35) --0.15
+					
+					if v.Parent.Name == "Bricks" then
+						v.ImageTransparency = 1
+						local Tween = TweenService:Create(v, TweenInfo.new(chosenInterval, Enum.EasingStyle.Elastic, Enum.EasingDirection.Out), {ImageTransparency = 0})
+						Tween:Play()					
+					end
+					v.Position = v.Parent.Base.Position
+					v.Size = v.Parent.Base.Size
+					
+					v.UIStroke.Transparency = 1
+					
+					local Tween = TweenService:Create(v.UIStroke, TweenInfo.new(chosenInterval, Enum.EasingStyle.Elastic, Enum.EasingDirection.Out), {Transparency = 0.2})
+					Tween:Play()
+				
+					local Tween2 = TweenService:Create(v, TweenInfo.new(chosenInterval, Enum.EasingStyle.Elastic, Enum.EasingDirection.Out), {Position = originalGlitchPositions[v.Name].Pos, Size = originalGlitchPositions[v.Name].Size})
+					Tween2:Play()
+				end
+			end
+			
+			area.Arrow.Position = originalArrowPosition
+			area.Arrow.ImageTransparency = 1
+			
+			local Tween = TweenService:Create(area.Arrow, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {ImageTransparency = 0, Position = UDim2.new(1.7, 0, 0.25, 0)})
+			Tween:Play()
+			
+			local Tween2 = TweenService:Create(area, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = optionEnhancedSize})
+			Tween2:Play()
+		end
+		
+		local function EndGlitch()
+			for i, v in pairs (area.Glitch:GetDescendants()) do
+				if v:IsA("ImageLabel") and v.Name ~= "Base" then
+					if v.Parent.Name == "Bricks" then
+						local Tween = TweenService:Create(v, TweenInfo.new(0.125, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {ImageTransparency = 1})
+						Tween:Play()					
+					end
+					local Tween = TweenService:Create(v.UIStroke, TweenInfo.new(0.125, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Transparency = 1})
+					Tween:Play()
+				end
+			end
+			
+			local Tween = TweenService:Create(area.Arrow, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {ImageTransparency = 1})
+			Tween:Play()
+			
+			local Tween2 = TweenService:Create(area, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = optionRegularSize})
+			Tween2:Play()
+		end
+		
+		self.Connections[area.Name .. 'MouseEnter'] = area.TextButton.MouseEnter:Connect(function()
+			if area.Name == "Exit" then
+				self.CurrentOption = ""
+			else
+				self.CurrentOption = area.Name
+			end
+			
+			task.spawn(function()
+				local originalOption = self.CurrentOption 
+				
+				StartGlitch()
+				
+				if self.CurrentOption ~= "" then
+					self:DisplayDescription(true, self.CurrentOption)
+				end
+			end)
+		end)
+		
+		self.Connections[area.Name .. 'MouseLeave'] = area.TextButton.MouseLeave:Connect(function()
+			self.CurrentOption = ""
+			EndGlitch()
+			self:DisplayDescription(false)
+		end)
+		
+	elseif effect == "Blur" then
+		local Speed = MenuCloseSpeed/1.5
+		local blurAmount = 20
+		
+		if status == true then 
+			self.OriginalBlur = game:GetService("Lighting"):WaitForChild("Blur").Size 
+			Speed = MenuOpenSpeed/1.5 
+		else
+			blurAmount = self.OriginalBlur
+		end
+
+		local Tween = TweenService:Create(game:GetService("Lighting"):WaitForChild("Blur"), TweenInfo.new(Speed, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = blurAmount})
+		Tween:Play()
+	end
+end
+
+function Menu:TVLines()	
+	task.spawn(function()
+		repeat
+			for i = 1, 1 do
+				local r = Random.new()
+				local chosenInterval = 5--r:NextNumber(4, 5)
+
+				local newLine = MenuUI.Background.Lines['sampleLine' .. tostring(i)]:Clone()
+				newLine.Name = "Line"
+				newLine.Parent = MenuUI.Background.LineCache
+
+				local chooseDestinaton = math.random(1, 1) 
+				local chosenDestinationPos = MenuUI.Background.LineCache.Goals['Goal' .. chooseDestinaton].Position
+				local chosenDestinationSize = MenuUI.Background.LineCache.Goals['Goal' .. chooseDestinaton].Size
+
+				newLine:ClearAllChildren()
+
+				task.spawn(function()
+					local Tween = TweenService:Create(newLine, TweenInfo.new(chosenInterval, Enum.EasingStyle.Linear, Enum.EasingDirection.Out), {BackgroundTransparency = 0.75, Position = chosenDestinationPos, Size = chosenDestinationSize})
+					Tween:Play()	
+					Tween.Completed:Wait()
+					newLine:Destroy()
+				end)
+
+				task.wait(0.375) 
+			end
+		until self.MenuOpen == false or self.TVLinesStatus == false or Player:WaitForChild("Data").inWindow.Value ~= ""
+
+		for i, v in pairs (MenuUI.Background.LineCache:GetChildren()) do
+			if v.Name ~= "Goals" then
+				task.spawn(function()
+					--[[
+					local Tween = TweenService:Create(v, TweenInfo.new(MenuCloseSpeed/4, Enum.EasingStyle.Linear, Enum.EasingDirection.Out), {BackgroundTransparency = 1})
+					Tween:Play()
+					Tween.Completed:Wait()
+					]]
+					v:Destroy()
+				end)
+			end
+		end
+	end)
+end
+
+function Menu:DisplayDescription(status, option)
+	if status == true then
+		self:UIPos(MenuUI.Description, "Hide", Enum.EasingStyle.Linear, Enum.EasingDirection.Out, MenuOpenSpeed, true, true)
+		
+		MenuUI.Description.Title.Text = option
+		MenuUI.Description.Description.Text = Descriptions[option]
+		
+		self:UIPos(MenuUI.Description, "Show", Enum.EasingStyle.Elastic, Enum.EasingDirection.Out, MenuOpenSpeed, false)
+		
+		for i, v in pairs (MenuUI.Description:GetChildren()) do
+			if v:IsA("ImageLabel") then
+				local Tween = TweenService:Create(v, TweenInfo.new(0.25, Enum.EasingStyle.Elastic, Enum.EasingDirection.Out), {ImageTransparency = 0})
+				Tween:Play()
+			elseif v:IsA("Frame") then
+				task.delay(0.25, function()
+					local Tween = TweenService:Create(v.Wheel1, TweenInfo.new(0.125, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {ImageTransparency = 0.5})
+					Tween:Play()
+					
+					if table.find(self.Spinning, "Wheel1") then 
+						return 
+					else
+						table.insert(self.Spinning, "Wheel1")
+					end
+					
+					local increment = -1
+					repeat task.wait() v.Wheel1.Rotation += increment until self.MenuOpen == false or self.CurrentOption == "" or Player:WaitForChild("Data").inWindow.Value ~= ""
+					
+					local index = table.find(self.Spinning, "Wheel1")
+					table.remove(self.Spinning, index)
+					
+					local Tween = TweenService:Create(v.Wheel1, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {ImageTransparency = 1})
+					Tween:Play()
+				end)
+			elseif v:IsA("TextLabel") then
+				task.delay(0.25, function()
+					local Tween = TweenService:Create(v, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0})
+					Tween:Play()
+					local Tween = TweenService:Create(v.UIStroke, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Transparency = 0})
+					Tween:Play()
+				end)
+			end
+		end
+	else
+		self:UIPos(MenuUI.Description, "Hide", Enum.EasingStyle.Quad, Enum.EasingDirection.Out, MenuOpenSpeed, false)
+		
+		for i, v in pairs (MenuUI.Description:GetChildren()) do
+			if v:IsA("ImageLabel") then
+				local Tween = TweenService:Create(v, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {ImageTransparency = 1})
+				Tween:Play()
+			elseif v:IsA("TextLabel") then
+				local Tween = TweenService:Create(v, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 1})
+				Tween:Play()
+				local Tween = TweenService:Create(v.UIStroke, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Transparency = 1})
+				Tween:Play()
+			end
+		end
+	end
+end
+
+function Menu:Spin(UI, dir)
+	task.spawn(function()
+		if table.find(self.Spinning, UI.Name) then 
+			return 
+		else
+			table.insert(self.Spinning, UI.Name)
+		end
+		
+		local increment = -1 if dir == 'Forward' then increment = 1 end
+		repeat task.wait() UI.Rotation += increment until self.MenuOpen == false or Player:WaitForChild("Data").inWindow.Value ~= ""
+		
+		local index = table.find(self.Spinning, UI.Name)
+		table.remove(self.Spinning, index)
+	end)
+end
+
+function Menu:Open(status, inWindow)
+	self.MenuOpen = status
+	self.TVLinesStatus = status
+	
+	if status == true then		
+		for i, v in pairs (MenuUI.Options:GetChildren()) do
+			for ii, vv in pairs (MenuUI.Options[v.Name].Glitch:GetDescendants()) do
+				if vv:IsA("ImageLabel") and vv.Name ~= "Base" then
+					if vv.Parent.Name == "Bricks" then
+						vv.ImageTransparency = 1					
+					end
+					vv.UIStroke.Transparency = 1
+				end
+			end
+
+			MenuUI.Options[v.Name].Arrow.ImageTransparency = 1
+			MenuUI.Options[v.Name].Size = optionRegularSize
+		end
+		
+		if self.Connections then
+			for i, v in pairs (self.Connections) do
+				v:Disconnect()
+				self.Connections[i] = nil
+			end
+		else
+			self.Connections = {}
+			self.Spinning = {}
+		end
+		
+		for i, v in pairs (ReplicatedStorage.Classes.SubClasses.Menu.Windows:GetChildren()) do
+			if MenuUI.Options:FindFirstChild(v.Name) then
+				table.insert(
+					self.Connections,
+
+					MenuUI.Options[v.Name].TextButton.Activated:Connect(function()
+						--print(v.Name)
+						if v.Name == "Store" then return end
+						local WindowFunctions = require(v)
+						WindowFunctions:Open(true)
+					end)
+				)
+			end
+		end
+		
+		self:UIPos(MenuUI.MainArrow, "Hide", Enum.EasingStyle.Linear, Enum.EasingDirection.Out, MenuOpenSpeed, true, true)
+		self:UIPos(MenuUI.Information, "Hide", Enum.EasingStyle.Linear, Enum.EasingDirection.Out, MenuOpenSpeed, true, true)
+		self:UIPos(MenuUI.Wheels.Wheel1, "Hide", Enum.EasingStyle.Linear, Enum.EasingDirection.Out, MenuOpenSpeed, true, true)
+		self:UIPos(MenuUI.Wheels.Wheel2, "Hide", Enum.EasingStyle.Linear, Enum.EasingDirection.Out, MenuOpenSpeed, true, true)
+		
+		self:Spin(MenuUI.Wheels.Wheel1, 'Forward')
+		self:Spin(MenuUI.Wheels.Wheel2, 'Backward')
+		
+		self:UITrans(MenuUI.MainArrow, 1, Enum.EasingStyle.Linear, Enum.EasingDirection.Out, MenuOpenSpeed, false, true)
+		for i, v in pairs (MenuUI.Wheels:GetChildren()) do
+			self:UITrans(v, 1, Enum.EasingStyle.Linear, Enum.EasingDirection.Out, MenuOpenSpeed, false, true)
+			self:UITrans(v, 0, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, MenuOpenSpeed * 2, false)
+		end
+		
+		MenuUI.HexagonPattern1.Visible = true
+		MenuUI.Background.HexagonPattern2.Visible = true
+		MenuUI.Visible = true
+		
+		MenuUI["Open/Close"]:Play()
+		
+		self:UITrans(MenuUI.MainArrow, 0, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, MenuCloseSpeed + (MenuOpenSpeed/1.25), false)
+		self:UIPos(MenuUI.MainArrow, "Show", Enum.EasingStyle.Quad, Enum.EasingDirection.Out, MenuOpenSpeed + (MenuOpenSpeed/1.25), false)
+		
+		self:UIPos(MenuUI.Information, "Show", Enum.EasingStyle.Quad, Enum.EasingDirection.Out, MenuOpenSpeed + (MenuOpenSpeed/1.25), false)
+		
+		self:UIPos(MenuUI.Wheels.Wheel1, "Show", Enum.EasingStyle.Quad, Enum.EasingDirection.Out, MenuCloseSpeed + (MenuOpenSpeed/1.25), false)
+		self:UIPos(MenuUI.Wheels.Wheel2, "Show", Enum.EasingStyle.Quad, Enum.EasingDirection.Out, MenuCloseSpeed + (MenuOpenSpeed/1.25), false)
+		
+		self:FX("Blur", nil, true)
+		
+		if inWindow == nil then
+			self:UITrans(MenuUI, 0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, MenuOpenSpeed/1.5, false)
+		end
+		
+		self:UITrans(MenuUI.HexagonPattern1, 0, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, MenuOpenSpeed/1.5, false)
+		self:UITrans(MenuUI.Background.HexagonPattern2, 0, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, MenuOpenSpeed/1.5, false)
+		self:UITrans(MenuUI.Background.Background1, 0, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, MenuOpenSpeed/1.5, false)
+		self:UITrans(MenuUI.Background.Background2, 0, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, MenuOpenSpeed/1.5, false)
+		
+		self:TVLines()
+		
+		self:UIPos(MenuUI.Options, "Show", Enum.EasingStyle.Quad, Enum.EasingDirection.Out, MenuOpenSpeed + (MenuOpenSpeed/1.25), true)
+		
+		for i, v in pairs (MenuUI.Options:GetChildren()) do
+			self:FX("Glitchify", v)
+		end
+
+		task.spawn(function()
+			repeat task.wait()
+				local r = Random.new()
+				local chosenInterval = r:NextNumber(1, 5)
+				local chosenInterval2 = r:NextNumber(1, 5)
+				
+				task.spawn(function()
+					self:UITrans(MenuUI.HexagonPattern1, 0.85, Enum.EasingStyle.Linear, Enum.EasingDirection.Out, 2, true)
+					self:UITrans(MenuUI.HexagonPattern1, 0, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut, 2, true)
+				end)
+				
+				self:UITrans(MenuUI.Background.HexagonPattern2, 0.85, Enum.EasingStyle.Linear, Enum.EasingDirection.Out, 2, true)
+				self:UITrans(MenuUI.Background.HexagonPattern2, 0, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut, 2, true)
+			until self.MenuOpen == false or Player:WaitForChild("Data").inWindow.Value ~= ""
+		end)
+
+	elseif status == false then
+		self.TVLinesStatus = false
+		
+		if self.Connections then
+			for i, v in pairs (self.Connections) do
+				v:Disconnect()
+				self.Connections[i] = nil
+			end
+		else
+			self.Connections = {}
+			self.Spinning = {}
+		end
+
+		for i, v in pairs (MenuUI.Background.LineCache:GetChildren()) do
+			if v.Name ~= "Goals" then
+				task.spawn(function()
+					v:Destroy()
+				end)
+			end
+		end
+
+		MenuUI.HexagonPattern1.Visible = false
+		MenuUI.Background.HexagonPattern2.Visible = false
+		
+		MenuUI["Open/Close"]:Play()
+		
+		if self.CurrentOption ~= nil and self.CurrentOption ~= "" then
+			for i, v in pairs (MenuUI.Options[self.CurrentOption].Glitch:GetDescendants()) do
+				if v:IsA("ImageLabel") and v.Name ~= "Base" then
+					if v.Parent.Name == "Bricks" then
+						v.ImageTransparency = 1					
+					end
+					v.UIStroke.Transparency = 1
+				end
+			end
+
+			MenuUI.Options[self.CurrentOption].Arrow.ImageTransparency = 1
+			MenuUI.Options[self.CurrentOption].Size = optionRegularSize
+			
+			self:DisplayDescription(false, self.CurrentOption)
+			
+			self.CurrentOption = ""
+		end
+		
+		for i, v in pairs (MenuUI.Options.Exit.Glitch:GetDescendants()) do
+			if v:IsA("ImageLabel") and v.Name ~= "Base" then
+				if v.Parent.Name == "Bricks" then
+					v.ImageTransparency = 1					
+				end
+				v.UIStroke.Transparency = 1
+			end
+		end
+
+		MenuUI.Options.Exit.Arrow.ImageTransparency = 1
+		MenuUI.Options.Exit.Size = optionRegularSize
+
+		self:UITrans(MenuUI.MainArrow, 1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, MenuCloseSpeed, false)
+		self:UIPos(MenuUI.MainArrow, "Hide", Enum.EasingStyle.Quad, Enum.EasingDirection.Out, MenuCloseSpeed, false)
+		self:UIPos(MenuUI.Information, "Hide", Enum.EasingStyle.Quad, Enum.EasingDirection.Out, MenuCloseSpeed, false)
+		self:UIPos(MenuUI.Options, "Hide", Enum.EasingStyle.Quad, Enum.EasingDirection.Out, MenuCloseSpeed, false)
+		
+		self:UIPos(MenuUI.Wheels.Wheel1, "Hide", Enum.EasingStyle.Quad, Enum.EasingDirection.Out, MenuCloseSpeed, false)
+		self:UIPos(MenuUI.Wheels.Wheel2, "Hide", Enum.EasingStyle.Quad, Enum.EasingDirection.Out, MenuCloseSpeed, false)
+		self:UITrans(MenuUI.Wheels.Wheel1, 1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, MenuCloseSpeed, false)
+		self:UITrans(MenuUI.Wheels.Wheel2, 1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, MenuCloseSpeed, false)
+		
+		self:UITrans(MenuUI.HexagonPattern1, 1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, MenuCloseSpeed + (MenuCloseSpeed/2), false)
+		self:UITrans(MenuUI.Background.HexagonPattern2, 1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, MenuCloseSpeed + (MenuCloseSpeed/2), false)
+		self:UITrans(MenuUI.Background.Background1, 1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, MenuCloseSpeed + (MenuCloseSpeed/2), false)
+		
+		self:FX("Blur", nil, false)
+		
+		if inWindow == nil then
+			self:UITrans(MenuUI, 1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, MenuCloseSpeed + (MenuCloseSpeed/2), false)
+		end
+		
+		self:UITrans(MenuUI.Background.Background2, 1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, MenuCloseSpeed + (MenuCloseSpeed/2), true)
+		
+		if inWindow == nil then
+			MenuUI.Visible = false
+		end
+	end
+	
+	task.wait(OpenMenuCD)
+end
+
+return Menu
