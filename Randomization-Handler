@@ -1,0 +1,43 @@
+#!/usr/bin/env lua
+
+-- @ Randomizer module to handle weighted random selection
+
+local Randomizer = {}
+Randomizer.__index = Randomizer
+
+-- @ Constructor for Randomizer instances
+function Randomizer.new(weightedTable)
+	-- @ Ensure the sum of weights is exactly 100
+	local totalWeight = 0
+	for _, weight in pairs(weightedTable) do
+		totalWeight = totalWeight + weight
+	end
+
+	if totalWeight ~= 100 then
+		error("The total weights in the table must equal 100.")
+	end
+
+	-- @ Create a new Randomizer instance
+	return setmetatable({
+		weightedTable = weightedTable, -- @ Store the weighted table
+	}, Randomizer)
+end
+
+-- @ Randomize and return a selection based on the weighted table
+function Randomizer:select()
+	-- @ Generate a random number between 1 and 100
+	local randomValue = math.random(1, 100)
+	local cumulativeWeight = 0
+
+	-- @ Iterate through the weighted table to find the selection
+	for key, weight in pairs(self.weightedTable) do
+		cumulativeWeight = cumulativeWeight + weight
+		if randomValue <= cumulativeWeight then
+			return key -- @ Return the selected key
+		end
+	end
+
+	error("Random selection failed. Check your weighted table.")
+end
+
+return Randomizer
